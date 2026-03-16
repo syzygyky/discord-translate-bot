@@ -47,11 +47,16 @@ const translate = async (text, target) => {
 
   const res = await axios.post(
     'https://api-free.deepl.com/v2/translate',
-    new URLSearchParams({
-      auth_key: DEEPL_KEY,
-      text,
+    {
+      text: [text],
       target_lang: target
-    })
+    },
+    {
+      headers: {
+        'Authorization': `DeepL-Auth-Key ${DEEPL_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    }
   )
 
   return res.data.translations[0].text
