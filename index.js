@@ -1,22 +1,14 @@
 import { Client, GatewayIntentBits } from 'discord.js'
 import axios from 'axios'
 import { franc } from 'franc'
-import fs from 'fs'
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 const DEEPL_KEY = process.env.DEEPL_KEY
 
-const SETTINGS_FILE = './channels.json'
-
-// 保存データ
-let settings = { channels: [] }
-
-if (fs.existsSync(SETTINGS_FILE)) {
-  settings = JSON.parse(fs.readFileSync(SETTINGS_FILE))
-}
-
-const saveSettings = () => {
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2))
+const settings = {
+  channels: process.env.TRANSLATE_CHANNELS
+    ? process.env.TRANSLATE_CHANNELS.split(',')
+    : []
 }
 
 const client = new Client({
@@ -30,6 +22,7 @@ const client = new Client({
 const webhookCache = new Map()
 
 const detectLang = text => {
+
   const lang = franc(text)
 
   if (lang === 'jpn') return 'JA'
@@ -63,6 +56,7 @@ const getWebhook = async channel => {
   let hook = hooks.find(h => h.owner.id === client.user.id)
 
   if (!hook) {
+
     hook = await channel.createWebhook({
       name: 'Translator'
     })
@@ -73,15 +67,12 @@ const getWebhook = async channel => {
   return hook
 }
 
-// 翻訳処理
 const processMessage = async message => {
 
-  console.log("message:", message.content)
-  console.log("channel:", message.channel.id)
-  console.log("settings:", settings.channels)
+  if (message.author.bot) return
+  if (message.webhookId) return
 
   if (!settings.channels.includes(message.channel.id)) return
-  if (message.author.bot) return
 
   const text = message.content?.trim()
 
@@ -115,12 +106,11 @@ client.once('clientReady', async () => {
   const commands = [
     {
       name: 'translate-channel',
-      description: 'Set translation channel',
+      description: 'Enable or disable translation in this channel',
       options: [
         {
           name: 'action',
           type: 3,
-          description: 'add or remove',
           required: true,
           choices: [
             { name: 'add', value: 'add' },
@@ -128,6 +118,10 @@ client.once('clientReady', async () => {
           ]
         }
       ]
+    },
+    {
+      name: 'translate-list',
+      description: 'Show translation channels'
     }
   ]
 
@@ -149,24 +143,36 @@ client.on('interactionCreate', async interaction => {
 
       if (!settings.channels.includes(channelId)) {
         settings.channels.push(channelId)
-        saveSettings()
       }
 
-      await interaction.reply('Translation enabled for this channel.')
+      await interaction.reply('Translation enabled.')
 
     }
 
     if (action === 'remove') {
 
-      settings.channels = settings.channels.filter(id => id !== channelId)
-      saveSettings()
+      settings.channels = settings.channels.filter(
+        id => id !== channelId
+      )
 
-      await interaction.reply('Translation disabled for this channel.')
-
+      await interaction.reply('Translation disabled.')
     }
-
   }
 
+  if (interaction.commandName === 'translate-list') {
+
+    if (!settings.channels.length) {
+
+      await interaction.reply('No translation channels set.')
+      return
+    }
+
+    const list = settings.channels
+      .map(id => `<#${id}>`)
+      .join('\n')
+
+    await interaction.reply(`Translation channels:\n${list}`)
+  }
 })
 
 client.login(DISCORD_TOKEN)
