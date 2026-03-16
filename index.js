@@ -1,15 +1,27 @@
 import { Client, GatewayIntentBits } from 'discord.js'
 import axios from 'axios'
 import { franc } from 'franc'
+import fs from 'fs'
+
+const SETTINGS_FILE = './channels.json'
+
+const loadSettings = () => {
+  if (!fs.existsSync(SETTINGS_FILE)) {
+    return { channels: [] }
+  }
+  return JSON.parse(fs.readFileSync(SETTINGS_FILE))
+}
+
+const saveSettings = settings => {
+  fs.writeFileSync(
+    SETTINGS_FILE,
+    JSON.stringify(settings, null, 2)
+  )
+}
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 const DEEPL_KEY = process.env.DEEPL_KEY
 
-const settings = {
-  channels: process.env.TRANSLATE_CHANNELS
-    ? process.env.TRANSLATE_CHANNELS.split(',')
-    : []
-}
 
 const client = new Client({
   intents: [
@@ -72,10 +84,11 @@ const processMessage = async message => {
   if (message.author.bot) return
   if (message.webhookId) return
 
+  const settings = loadSettings()
+
   if (!settings.channels.includes(message.channel.id)) return
 
   const text = message.content?.trim()
-
   if (!text) return
 
   const lang = detectLang(text)
@@ -140,10 +153,13 @@ client.on('interactionCreate', async interaction => {
     const action = interaction.options.getString('action')
     const channelId = interaction.channelId
 
+    const settings = loadSettings()
+
     if (action === 'add') {
 
       if (!settings.channels.includes(channelId)) {
         settings.channels.push(channelId)
+        saveSettings(settings)
       }
 
       await interaction.reply('Translation enabled.')
@@ -155,6 +171,8 @@ client.on('interactionCreate', async interaction => {
       settings.channels = settings.channels.filter(
         id => id !== channelId
       )
+
+      saveSettings(settings)
 
       await interaction.reply('Translation disabled.')
     }
