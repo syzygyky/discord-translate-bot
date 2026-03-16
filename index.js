@@ -76,6 +76,10 @@ const getWebhook = async channel => {
 // 翻訳処理
 const processMessage = async message => {
 
+  console.log("message:", message.content)
+  console.log("channel:", message.channel.id)
+  console.log("settings:", settings.channels)
+
   if (!settings.channels.includes(message.channel.id)) return
   if (message.author.bot) return
 
