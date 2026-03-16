@@ -110,6 +110,7 @@ client.once('clientReady', async () => {
       options: [
         {
           name: 'action',
+          description: 'add or remove',
           type: 3,
           required: true,
           choices: [
