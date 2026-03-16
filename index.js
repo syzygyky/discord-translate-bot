@@ -1,14 +1,23 @@
 import { Client, GatewayIntentBits } from 'discord.js'
 import axios from 'axios'
 import { franc } from 'franc'
+import fs from 'fs'
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 const DEEPL_KEY = process.env.DEEPL_KEY
 
-// 翻訳対象チャンネル
-const TARGET_CHANNELS = [
-  'CHANNEL_ID'
-]
+const SETTINGS_FILE = './channels.json'
+
+// 保存データ
+let settings = { channels: [] }
+
+if (fs.existsSync(SETTINGS_FILE)) {
+  settings = JSON.parse(fs.readFileSync(SETTINGS_FILE))
+}
+
+const saveSettings = () => {
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2))
+}
 
 const client = new Client({
   intents: [
@@ -18,19 +27,8 @@ const client = new Client({
   ]
 })
 
-// webhook cache
 const webhookCache = new Map()
 
-// 翻訳キャッシュ
-const translationCache = new Map()
-
-// URL除外
-const hasUrl = text => /https?:\/\/\S+/i.test(text)
-
-// コード除外
-const hasCode = text => /```/.test(text)
-
-// 言語検出
 const detectLang = text => {
   const lang = franc(text)
 
@@ -40,14 +38,7 @@ const detectLang = text => {
   return null
 }
 
-// DeepL翻訳
 const translate = async (text, target) => {
-
-  const cacheKey = `${text}_${target}`
-
-  if (translationCache.has(cacheKey)) {
-    return translationCache.get(cacheKey)
-  }
 
   const res = await axios.post(
     'https://api-free.deepl.com/v2/translate',
@@ -58,14 +49,9 @@ const translate = async (text, target) => {
     })
   )
 
-  const translated = res.data.translations[0].text
-
-  translationCache.set(cacheKey, translated)
-
-  return translated
+  return res.data.translations[0].text
 }
 
-// webhook取得
 const getWebhook = async channel => {
 
   if (webhookCache.has(channel.id)) {
@@ -90,19 +76,22 @@ const getWebhook = async channel => {
 // 翻訳処理
 const processMessage = async message => {
 
-  if (!message.content) return
-  if (hasUrl(message.content)) return
-  if (hasCode(message.content)) return
+  if (!settings.channels.includes(message.channel.id)) return
+  if (message.author.bot) return
 
-  const lang = detectLang(message.content)
+  const text = message.content?.trim()
+
+  if (!text) return
+
+  const lang = detectLang(text)
 
   if (!lang) return
 
-  const target = lang === 'JA' ? 'EN' : 'JA'
+  const target = lang === 'JA'
+    ? 'EN'
+    : 'JA'
 
-  const translated = await translate(message.content, target)
-
-  if (!translated || translated === message.content) return
+  const translated = await translate(text, target)
 
   const webhook = await getWebhook(message.channel)
 
@@ -113,37 +102,65 @@ const processMessage = async message => {
   })
 }
 
-// 新規メッセージ
-client.on('messageCreate', async message => {
+client.on('messageCreate', processMessage)
 
-  if (message.author.bot) return
-  if (!TARGET_CHANNELS.includes(message.channel.id)) return
+client.once('clientReady', async () => {
 
-  try {
-    await processMessage(message)
-  } catch (err) {
-    console.error(err)
-  }
-
-})
-
-// 編集時再翻訳
-client.on('messageUpdate', async (_, newMessage) => {
-
-  if (!newMessage.author) return
-  if (newMessage.author.bot) return
-  if (!TARGET_CHANNELS.includes(newMessage.channel.id)) return
-
-  try {
-    await processMessage(newMessage)
-  } catch (err) {
-    console.error(err)
-  }
-
-})
-
-client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`)
+
+  const commands = [
+    {
+      name: 'translate-channel',
+      description: 'Set translation channel',
+      options: [
+        {
+          name: 'action',
+          type: 3,
+          description: 'add or remove',
+          required: true,
+          choices: [
+            { name: 'add', value: 'add' },
+            { name: 'remove', value: 'remove' }
+          ]
+        }
+      ]
+    }
+  ]
+
+  await client.application.commands.set(commands)
+})
+
+client.on('interactionCreate', async interaction => {
+
+  if (!interaction.isChatInputCommand()) return
+
+  if (interaction.commandName === 'translate-channel') {
+
+    const action = interaction.options.getString('action')
+    const channelId = interaction.channelId
+
+    if (action === 'add') {
+
+      if (!settings.channels.includes(channelId)) {
+        settings.channels.push(channelId)
+        saveSettings()
+      }
+
+      await interaction.reply('Translation enabled for this channel.')
+
+    }
+
+    if (action === 'remove') {
+
+      settings.channels = settings.channels.filter(id => id !== channelId)
+      saveSettings()
+
+      await interaction.reply('Translation disabled for this channel.')
+
+    }
+
+  }
+
 })
 
 client.login(DISCORD_TOKEN)
