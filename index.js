@@ -110,7 +110,7 @@ client.once('clientReady', async () => {
       options: [
         {
           name: 'action',
-          description: 'add or remove',
+          description: 'Add or remove translation for this channel',
           type: 3,
           required: true,
           choices: [
