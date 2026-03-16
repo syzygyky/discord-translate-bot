@@ -127,7 +127,9 @@ client.once('clientReady', async () => {
     }
   ]
 
-  await client.application.commands.set(commands)
+  const guild = client.guilds.cache.first()
+
+  await guild.commands.set(commands)
 })
 
 client.on('interactionCreate', async interaction => {
