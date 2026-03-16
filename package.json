@@ -1,0 +1,7 @@
+{
+  "name": "discord-translate-bot",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  }
+}
