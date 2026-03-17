@@ -1,13 +1,13 @@
 import { Client, GatewayIntentBits } from 'discord.js'
 import axios from 'axios'
-import { franc } from 'franc'
+// import { franc } from 'franc'
 import fs from 'fs'
 
 const SETTINGS_FILE = './channels.json'
 
 const loadSettings = () => {
   if (!fs.existsSync(SETTINGS_FILE)) {
-    return { channels: [] }
+    return { channels: {} }
   }
   return JSON.parse(fs.readFileSync(SETTINGS_FILE))
 }
@@ -18,6 +18,7 @@ const saveSettings = settings => {
     JSON.stringify(settings, null, 2)
   )
 }
+
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN
 const DEEPL_KEY = process.env.DEEPL_KEY
@@ -32,7 +33,7 @@ const client = new Client({
 })
 
 const webhookCache = new Map()
-
+/*
 const detectLang = text => {
 
   const lang = franc(text)
@@ -42,14 +43,14 @@ const detectLang = text => {
 
   return null
 }
-
+*/
 const translate = async (text, target) => {
 
   const res = await axios.post(
     'https://api-free.deepl.com/v2/translate',
     {
       text: [text],
-      target_lang: target
+      target_lang: target.toUpperCase()
     },
     {
       headers: {
@@ -59,7 +60,12 @@ const translate = async (text, target) => {
     }
   )
 
-  return res.data.translations[0].text
+  const data = res.data.translations[0]
+
+  return {
+    text: data.text,
+    detected: data.detected_source_language.toLowerCase()
+  }
 }
 
 const getWebhook = async channel => {
@@ -90,21 +96,28 @@ const processMessage = async message => {
   if (message.webhookId) return
 
   const settings = loadSettings()
+  const langs = settings.channels[message.channel.id]
 
-  if (!settings.channels.includes(message.channel.id)) return
+  if (!langs) return
 
   const text = message.content?.trim()
   if (!text) return
 
-  const lang = detectLang(text)
+  // とりあえずlang1に翻訳
+  const result = await translate(text, langs[0])
 
-  if (!lang) return
+  let target = langs[0]
 
-  const target = lang === 'JA'
-    ? 'EN'
-    : 'JA'
+  if (result.detected === langs[0]) {
+    target = langs[1]
+  }
 
-  const translated = await translate(text, target)
+  let translated = result.text
+
+  // lang2へ再翻訳が必要な場合のみ実行
+  if (target === langs[1]) {
+    translated = (await translate(text, langs[1])).text
+  }
 
   const webhook = await getWebhook(message.channel)
 
@@ -124,23 +137,31 @@ client.once('clientReady', async () => {
   const commands = [
     {
       name: 'translate-channel',
-      description: 'Enable or disable translation in this channel',
+      description: 'Set translation languages for this channel',
       options: [
         {
           name: 'action',
-          description: 'Add or remove translation for this channel',
+          description: 'add or remove',
           type: 3,
           required: true,
           choices: [
             { name: 'add', value: 'add' },
             { name: 'remove', value: 'remove' }
           ]
+        },
+        {
+          name: 'lang1',
+          description: 'first language (ISO 639-1)',
+          type: 3,
+          required: false
+        },
+        {
+          name: 'lang2',
+          description: 'second language (ISO 639-1)',
+          type: 3,
+          required: false
         }
       ]
-    },
-    {
-      name: 'translate-list',
-      description: 'Show translation channels'
     }
   ]
 
@@ -156,27 +177,35 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'translate-channel') {
 
     const action = interaction.options.getString('action')
+    const lang1 = interaction.options.getString('lang1')
+    const lang2 = interaction.options.getString('lang2')
+
     const channelId = interaction.channelId
 
     const settings = loadSettings()
 
     if (action === 'add') {
 
-      if (!settings.channels.includes(channelId)) {
-        settings.channels.push(channelId)
-        saveSettings(settings)
+      if (!lang1 || !lang2) {
+        await interaction.reply('Please specify lang1 and lang2')
+        return
       }
 
-      await interaction.reply('Translation enabled.')
+      settings.channels[channelId] = [
+        lang1.toLowerCase(),
+        lang2.toLowerCase()
+      ]
 
+      saveSettings(settings)
+
+      await interaction.reply(
+        `Translation enabled: ${lang1} ↔ ${lang2}`
+      )
     }
 
     if (action === 'remove') {
 
-      settings.channels = settings.channels.filter(
-        id => id !== channelId
-      )
-
+      delete settings.channels[channelId]
       saveSettings(settings)
 
       await interaction.reply('Translation disabled.')
