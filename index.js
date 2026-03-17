@@ -174,6 +174,14 @@ client.on('interactionCreate', async interaction => {
 
   if (!interaction.isChatInputCommand()) return
 
+  if (!interaction.member.permissions.has('ManageGuild')) {
+    await interaction.reply({
+      content: 'You need Manage Server permission.',
+      ephemeral: true
+    })
+    return
+  }
+
   if (interaction.commandName === 'translate-channel') {
 
     const action = interaction.options.getString('action')
