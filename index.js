@@ -3,6 +3,8 @@ import axios from 'axios'
 // import { franc } from 'franc'
 import fs from 'fs'
 
+const glossary = require('./glossary.json')
+
 const SETTINGS_FILE = './channels.json'
 
 const loadSettings = () => {
@@ -44,6 +46,17 @@ const detectLang = text => {
   return null
 }
 */
+const applyGlossary = text => {
+  let result = text
+
+  for (const [key, value] of Object.entries(glossary)) {
+    const regex = new RegExp(key, 'g')
+    result = result.replace(regex, value)
+  }
+
+  return result
+}
+
 const translate = async (text, target) => {
 
   const res = await axios.post(
@@ -100,8 +113,9 @@ const processMessage = async message => {
 
   if (!langs) return
 
-  const text = message.content?.trim()
+  let text = message.content?.trim()
   if (!text) return
+  text = applyGlossary(text)
 
   // とりあえずlang1に翻訳
   const result = await translate(text, langs[0])
