@@ -3,7 +3,7 @@ import axios from 'axios'
 // import { franc } from 'franc'
 import fs from 'fs'
 
-const glossary = require('./glossary.json')
+const glossary = JSON.parse(fs.readFileSync('./glossary.json', 'utf8'))
 
 const SETTINGS_FILE = './channels.json'
 
