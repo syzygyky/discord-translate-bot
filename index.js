@@ -3,6 +3,14 @@ import axios from 'axios'
 // import { franc } from 'franc'
 import fs from 'fs'
 
+import http from 'http'
+
+const PORT = process.env.PORT || 3000
+
+http.createServer((req, res) => {
+  res.end('OK')
+}).listen(PORT)
+
 const glossary = JSON.parse(fs.readFileSync('./glossary.json', 'utf8'))
 
 const SETTINGS_FILE = './channels.json'
@@ -46,11 +54,11 @@ const detectLang = text => {
   return null
 }
 */
-const applyGlossary = text => {
+const applyGlossary = (text,phase) => {
   let result = text
 
-  for (const [key, value] of Object.entries(glossary)) {
-    const regex = new RegExp(key, 'g')
+  for (const [key, value] of Object.entries(glossary[phase])) {
+    const regex = new RegExp(key, 'gi')
     result = result.replace(regex, value)
   }
 
@@ -115,7 +123,7 @@ const processMessage = async message => {
 
   let text = message.content?.trim()
   if (!text) return
-  text = applyGlossary(text)
+  text = applyGlossary(text, 'before')
 
   // とりあえずlang1に翻訳
   const result = await translate(text, langs[0])
@@ -132,6 +140,10 @@ const processMessage = async message => {
   if (target === langs[1]) {
     translated = (await translate(text, langs[1])).text
   }
+
+  translated = applyGlossary(translated, 'after')
+  
+  if(translated.length > 2000) translated = "Error: Translated message must be 2,000 characters or fewer."
 
   const webhook = await getWebhook(message.channel)
 

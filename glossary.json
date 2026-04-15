@@ -1,11 +1,29 @@
 {
-  "オバロ": "Overload",
-  "オーバーロード": "Overload",
-  "遠征": "Expedition",
-  "末世反響": "Ender's Echo",
-  "末世": "Ender's Echo",
-  "ギルド": "Clan",
-  "神錬": "Xeno Transmute",
-  "神鋳": "AF",
-  "異獣": "Xeno Pet"
+  "before": {
+    "オバロ": "Overload",
+    "オーバーロード": "Overload",
+    "遠征": "Expedition",
+    "末世反響": "EE",
+    "末世": "EE",
+    "eco ender": "EE",
+    "ギルド": "Clan",
+    "神錬": "XT",
+    "神鋳": "AF",
+    "異獣": "Xeno Pet",
+    "atacó": "attack",
+    "タローシア": "Taloxa",
+    "ヴィトール": "Venato",
+    "リンネ": "Metallia",
+    "ペンガー": "Blizzblast",
+    "プクフグ": "Puffo"
+  },
+  "after": {
+    "クラン": "ギルド",
+    "ハーモニー": "同調",
+    "鍛造": "神鋳",
+    "ヴェナート": "ヴィトール",
+    "タロクサ": "タローシア",
+    "メタリア": "リンネ",
+    "Nutjob": "リス"
+  }
 }
