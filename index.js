@@ -209,77 +209,91 @@ client.once('clientReady', async () => {
 })
 
 client.on('interactionCreate', async interaction => {
-  if (interaction.isButton()) {
-    await applyroles.handleButton(interaction)
-    return
-  }
-
-  if (!interaction.isChatInputCommand()) return;
-
-  if (!interaction.member.permissions.has('ManageGuild')) {
-    await interaction.reply({
-      content: 'You need Manage Server permission.',
-      flags: MessageFlags.Ephemeral
-    })
-    return
-  }
-  
-  if (interaction.commandName === 'grouproles') {
-    await grouproles.execute(interaction)
-    return
-  }
-
-  if (interaction.commandName === 'translate-channel') {
-
-    const action = interaction.options.getString('action')
-    const lang1 = interaction.options.getString('lang1')
-    const lang2 = interaction.options.getString('lang2')
-
-    const channelId = interaction.channelId
-
-    const settings = loadSettings()
-
-    if (action === 'add') {
-
-      if (!lang1 || !lang2) {
-        await interaction.reply('Please specify lang1 and lang2')
-        return
-      }
-
-      settings.channels[channelId] = [
-        lang1.toLowerCase(),
-        lang2.toLowerCase()
-      ]
-
-      saveSettings(settings)
-
-      await interaction.reply(
-        `Translation enabled: ${lang1} ↔ ${lang2}`
-      )
-    }
-
-    if (action === 'remove') {
-
-      delete settings.channels[channelId]
-      saveSettings(settings)
-
-      await interaction.reply('Translation disabled.')
-    }
-  }
-
-  if (interaction.commandName === 'translate-list') {
-
-    if (!settings.channels.length) {
-
-      await interaction.reply('No translation channels set.')
+  try {
+    if (interaction.isButton()) {
+      await grouprolesroles.handleButton(interaction)
       return
     }
 
-    const list = settings.channels
-      .map(id => `<#${id}>`)
-      .join('\n')
+    if (!interaction.isChatInputCommand()) return
 
-    await interaction.reply(`Translation channels:\n${list}`)
+    if (!interaction.member.permissions.has('ManageGuild')) {
+      await interaction.reply({
+        content: 'You need Manage Server permission.',
+        flags: MessageFlags.Ephemeral
+      })
+      return
+    }
+    
+    if (interaction.commandName === 'grouproles') {
+      await grouproles.execute(interaction)
+      return
+    }
+
+    if (interaction.commandName === 'translate-channel') {
+
+      const action = interaction.options.getString('action')
+      const lang1 = interaction.options.getString('lang1')
+      const lang2 = interaction.options.getString('lang2')
+
+      const channelId = interaction.channelId
+
+      const settings = loadSettings()
+
+      if (action === 'add') {
+
+        if (!lang1 || !lang2) {
+          await interaction.reply('Please specify lang1 and lang2')
+          return
+        }
+
+        settings.channels[channelId] = [
+          lang1.toLowerCase(),
+          lang2.toLowerCase()
+        ]
+
+        saveSettings(settings)
+
+        await interaction.reply(
+          `Translation enabled: ${lang1} ↔ ${lang2}`
+        )
+      }
+
+      if (action === 'remove') {
+
+        delete settings.channels[channelId]
+        saveSettings(settings)
+
+        await interaction.reply('Translation disabled.')
+      }
+    }
+
+    if (interaction.commandName === 'translate-list') {
+
+      if (!settings.channels.length) {
+
+        await interaction.reply('No translation channels set.')
+        return
+      }
+
+      const list = settings.channels
+        .map(id => `<#${id}>`)
+        .join('\n')
+
+      await interaction.reply(`Translation channels:\n${list}`)
+    }
+  } catch (e) {
+    console.error(e)
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({
+        content: 'エラーが発生しました'
+      });
+    } else {
+      await interaction.reply({
+        content: 'エラーが発生しました',
+        flags: MessageFlags.Ephemeral
+      })
+    }
   }
 })
 

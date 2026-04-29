@@ -123,25 +123,37 @@ export const execute = async interaction => {
 }
 
 export const handleButton = async interaction => {
-  if (!interaction.customId.startsWith('grouproles|')) return
+  if (!interaction.customId.startsWith('grouproles|')) return;
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
-
-  let result
   try {
-    result = await processRoleMessage({
+    const messageId = interaction.customId.split('|')[1];
+
+    await interaction.deferReply({
+      flags: MessageFlags.Ephemeral
+    });
+
+    const result = await processRoleMessage({
       interaction,
       messageId,
       dryRun: false
-    })
+    });
+
+    const text = result.logs.join('\n').slice(0, 1800);
+
+    await interaction.editReply({
+      content: `完了\n成功:${result.success} 失敗:${result.fail} SKIP:${result.skip}\n\n${text}`
+    });
+
   } catch (e) {
-    await interaction.editReply(e.message)
-    return
+    console.error(e);
+
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply('エラーが発生しました');
+    } else {
+      await interaction.reply({
+        content: 'エラーが発生しました',
+        flags: MessageFlags.Ephemeral
+      });
+    }
   }
-
-  const text = result.logs.join('\n').slice(0, 1800)
-
-  await interaction.editReply({
-    content: `完了\n成功:${result.success} 失敗:${result.fail} SKIP:${result.skip}\n\n${text}`
-  })
-}
+};
