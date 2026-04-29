@@ -5,7 +5,7 @@ import fs from 'fs'
 
 import http from 'http'
 
-import * as grouproles from './commands/applyroles.js';
+import * as grouproles from './commands/grouproles.js';
 commands.push(grouproles.data.toJSON());
 
 const PORT = process.env.PORT || 3000
