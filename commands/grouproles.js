@@ -10,8 +10,13 @@ const roleMap = {
 }
 
 const processRoleMessage = async ({ interaction, messageId, dryRun }) => {
+  const channel = await interaction.client.channels.fetch(interaction.channelId);
 
-  const message = await interaction.client.channel.messages.fetch(messageId)
+  if (!channel || !channel.isTextBased()) {
+    throw new Error('Invalid channel');
+  }
+
+  const message = await channel.messages.fetch(messageId)
 
   const lines = message.content.split('\n')
 
