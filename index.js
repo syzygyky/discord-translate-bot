@@ -211,7 +211,7 @@ client.once('clientReady', async () => {
 client.on('interactionCreate', async interaction => {
   try {
     if (interaction.isButton()) {
-      await grouprolesroles.handleButton(interaction)
+      await grouproles.handleButton(interaction)
       return
     }
 
