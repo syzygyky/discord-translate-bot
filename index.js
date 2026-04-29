@@ -5,6 +5,9 @@ import fs from 'fs'
 
 import http from 'http'
 
+import * as grouproles from './commands/applyroles.js';
+commands.push(grouproles.data.toJSON());
+
 const PORT = process.env.PORT || 3000
 
 http.createServer((req, res) => {
@@ -197,14 +200,23 @@ client.once('clientReady', async () => {
 })
 
 client.on('interactionCreate', async interaction => {
+  if (interaction.isButton()) {
+    await applyroles.handleButton(interaction)
+    return
+  }
 
-  if (!interaction.isChatInputCommand()) return
+  if (!interaction.isChatInputCommand()) return;
 
   if (!interaction.member.permissions.has('ManageGuild')) {
     await interaction.reply({
       content: 'You need Manage Server permission.',
       ephemeral: true
     })
+    return
+  }
+  
+  if (interaction.commandName === 'grouproles') {
+    await grouproles.execute(interaction)
     return
   }
 
