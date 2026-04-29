@@ -6,7 +6,8 @@ const roleMap = {
   H: '1447071062629028043',
   Y: '1447071131608813609',
   Q: '1447071199753408532',
-  A: '1447071276240867382'
+  A: '1447071276240867382',
+  '新規育成枠': '1268416220462579713'
 }
 
 const processRoleMessage = async ({ interaction, messageId, dryRun }) => {
@@ -59,12 +60,12 @@ const processRoleMessage = async ({ interaction, messageId, dryRun }) => {
         const actions = []
 
         if (removeRoleId) {
-          actions.push(`- ${from}`)
+          actions.push(`-${from}`)
           if (!dryRun) await member.roles.remove(removeRoleId)
         }
 
         if (addRoleId) {
-          actions.push(`+ ${to}`)
+          actions.push(`+${to}`)
           if (!dryRun) await member.roles.add(addRoleId)
         }
 
