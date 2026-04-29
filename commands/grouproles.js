@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js'
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js'
 
 const roleMap = {
   'AMA☼TERASU': '1455546666282258492',
@@ -113,7 +113,7 @@ export const execute = async interaction => {
       dryRun: true
     })
   } catch (e) {
-    await interaction.reply({ content: e.message, ephemeral: true })
+    await interaction.reply({ content: e.message, flags: MessageFlags.Ephemeral })
     return
   }
 
@@ -129,7 +129,7 @@ export const execute = async interaction => {
   await interaction.reply({
     content: `DRY-RUN\n成功:${result.success} 失敗:${result.fail} SKIP:${result.skip}\n\n${text}`,
     components: [button],
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   })
 }
 
@@ -138,7 +138,7 @@ export const handleButton = async interaction => {
 
   const link = decodeURIComponent(interaction.customId.split('|')[1])
 
-  await interaction.deferReply({ ephemeral: true })
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   let result
   try {

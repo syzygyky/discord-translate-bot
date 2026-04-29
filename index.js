@@ -1,13 +1,21 @@
-import { Client, GatewayIntentBits } from 'discord.js'
+import { Client, GatewayIntentBits, MessageFlags } from 'discord.js'
 import axios from 'axios'
 // import { franc } from 'franc'
 import fs from 'fs'
 
 import http from 'http'
 
-import * as grouproles from './commands/grouproles.js';
+import * as grouproles from './commands/grouproles.js'
 
 const PORT = process.env.PORT || 3000
+
+process.on('unhandledRejection', err => {
+  console.error('UNHANDLED REJECTION', err)
+})
+
+process.on('uncaughtException', err => {
+  console.error('UNCAUGHT EXCEPTION', err)
+})
 
 http.createServer((req, res) => {
   res.end('OK')
@@ -211,7 +219,7 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.member.permissions.has('ManageGuild')) {
     await interaction.reply({
       content: 'You need Manage Server permission.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     })
     return
   }
