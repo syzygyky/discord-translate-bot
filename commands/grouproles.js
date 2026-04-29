@@ -9,25 +9,9 @@ const roleMap = {
   A: '1447071276240867382'
 }
 
-const parseLink = link => {
-  const m = link.match(/channels\/(\d+)\/(\d+)\/(\d+)/)
-  if (!m) throw new Error('invalid link')
-  return {
-    guildId: m[1],
-    channelId: m[2],
-    messageId: m[3]
-  }
-}
+const processRoleMessage = async ({ interaction, messageId, dryRun }) => {
 
-const processRoleMessage = async ({ interaction, link, dryRun }) => {
-  const { guildId, channelId, messageId } = parseLink(link)
-
-  if (guildId !== interaction.guildId) {
-    throw new Error('different guild')
-  }
-
-  const channel = await interaction.client.channels.fetch(channelId)
-  const message = await channel.messages.fetch(messageId)
+  const message = await interaction.client.channel.messages.fetch(messageId)
 
   const lines = message.content.split('\n')
 
@@ -95,21 +79,21 @@ const processRoleMessage = async ({ interaction, link, dryRun }) => {
 
 export const data = new SlashCommandBuilder()
   .setName('grouproles')
-  .setDescription('Apply roles from message link')
+  .setDescription('Apply roles from message ID')
   .addStringOption(option =>
-    option.setName('message_link')
-      .setDescription('target message link')
+    option.setName('message_id')
+      .setDescription('target message ID')
       .setRequired(true)
   )
 
 export const execute = async interaction => {
-  const link = interaction.options.getString('message_link')
+  const messageId = interaction.options.getString('message_id')
 
   let result
   try {
     result = await processRoleMessage({
       interaction,
-      link,
+      messageId,
       dryRun: true
     })
   } catch (e) {
@@ -119,7 +103,7 @@ export const execute = async interaction => {
 
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`grouproles|${encodeURIComponent(link)}`)
+      .setCustomId(`grouproles|${messageId}`)
       .setLabel('実行')
       .setStyle(ButtonStyle.Danger)
   )
@@ -136,15 +120,13 @@ export const execute = async interaction => {
 export const handleButton = async interaction => {
   if (!interaction.customId.startsWith('grouproles|')) return
 
-  const link = decodeURIComponent(interaction.customId.split('|')[1])
-
   await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   let result
   try {
     result = await processRoleMessage({
       interaction,
-      link,
+      messageId,
       dryRun: false
     })
   } catch (e) {
