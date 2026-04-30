@@ -69,7 +69,7 @@ const processRoleMessage = async ({ interaction, messageId, dryRun }) => {
           if (!dryRun) await member.roles.add(addRoleId)
         }
 
-        logs.push(`${member.user.tag} : ${actions.join(', ')}`)
+        logs.push(`${member.displayName} : ${actions.join(', ')}`)
         success++
       } catch (e) {
         logs.push(`FAILED ${userId} : ${e.message}`)

@@ -215,11 +215,13 @@ client.once('clientReady', async () => {
         {
           name: 'lang',
           description: 'Target Language (e.g. en, ja, es, zh)',
+          type: 3,
           required: true
         },
         {
           name: 'messageid',
           description: 'Message ID (optional)',
+          type: 4,
           required: false
         }
       ]
