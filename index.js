@@ -64,11 +64,14 @@ const detectLang = text => {
   return null
 }
 */
-const applyGlossary = (text,phase) => {
+const escapeRegExp = str =>
+  str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const applyGlossary = (text, glossary) => {
   let result = text
 
-  for (const [key, value] of Object.entries(glossary[phase])) {
-    const regex = new RegExp(key, 'gi')
+  for (const [key, value] of Object.entries(glossary)) {
+    const regex = new RegExp(escapeRegExp(key), 'gi')
     result = result.replace(regex, value)
   }
 
@@ -100,25 +103,37 @@ const translate = async (text, target) => {
 }
 
 const getWebhook = async channel => {
-
-  if (webhookCache.has(channel.id)) {
-    return webhookCache.get(channel.id)
-  }
-
   const hooks = await channel.fetchWebhooks()
 
-  let hook = hooks.find(h => h.owner.id === client.user.id)
+  let hook = hooks.find(
+    h => h.owner.id === channel.client.user.id && h.name === 'Translator'
+  )
 
   if (!hook) {
-
     hook = await channel.createWebhook({
       name: 'Translator'
     })
   }
 
-  webhookCache.set(channel.id, hook)
-
   return hook
+}
+
+const getTargetMessage = async (interaction, messageId) => {
+  const channel = interaction.channel
+
+  if (messageId) {
+    try {
+      return await channel.messages.fetch(messageId)
+    } catch {
+      return null
+    }
+  }
+
+  const messages = await channel.messages.fetch({ limit: 5 })
+
+  return messages
+    .filter(m => !m.author.bot)
+    .first()
 }
 
 const processMessage = async message => {
@@ -133,8 +148,8 @@ const processMessage = async message => {
 
   let text = message.content?.trim()
   if (!text) return
-  text = applyGlossary(text, 'before')
-
+  text = applyGlossary(text, glossary.before)
+  
   // とりあえずlang1に翻訳
   const result = await translate(text, langs[0])
 
@@ -151,17 +166,21 @@ const processMessage = async message => {
     translated = (await translate(text, langs[1])).text
   }
 
-  translated = applyGlossary(translated, 'after')
+  translated = applyGlossary(translated, glossary.after)
   
-  if(translated.length > 2000) translated = "Error: Translated message must be 2,000 characters or fewer."
-
+  // if(translated.length > 2000) translated = "Error: Translated message must be 2,000 characters or fewer."
+  
   const webhook = await getWebhook(message.channel)
+  
+  const chunks = translated.match(/[\s\S]{1,2000}/g) || []
 
-  await webhook.send({
-    content: translated,
-    username: message.member?.displayName || message.author.username,
-    avatarURL: message.author.displayAvatarURL()
-  })
+  for (const chunk of chunks) {
+    await webhook.send({
+      content: chunk,
+      username: message.member?.displayName || message.author.username,
+      avatarURL: message.author.displayAvatarURL()
+    })
+  }
 }
 
 client.on('messageCreate', processMessage)
@@ -176,28 +195,38 @@ client.once('clientReady', async () => {
       description: 'Set translation languages for this channel',
       options: [
         {
-          name: 'action',
-          description: 'add or remove',
-          type: 3,
-          required: true,
-          choices: [
-            { name: 'add', value: 'add' },
-            { name: 'remove', value: 'remove' }
-          ]
-        },
-        {
           name: 'lang1',
           description: 'first language (ISO 639-1)',
           type: 3,
-          required: false
+          required: true
         },
         {
           name: 'lang2',
           description: 'second language (ISO 639-1)',
           type: 3,
+          required: true
+        }
+      ]
+    },
+    {
+      name: 'translate',
+      description: 'Translate a message',
+      options: [
+        {
+          name: 'lang',
+          description: 'Target Language (e.g. en, ja, es, zh)',
+          required: true
+        },
+        {
+          name: 'messageid',
+          description: 'Message ID (optional)',
           required: false
         }
       ]
+    },
+    {
+      name: 'translate-disable',
+      description: 'Disable translation for this channel'
     }
   ]
 
@@ -217,6 +246,62 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return
 
+    if (interaction.commandName === 'translate') {
+      const lang = interaction.options.getString('lang')
+      const messageId = interaction.options.getString('messageid')
+
+      await interaction.deferReply({ ephemeral: true })
+
+      const targetMessage = await getTargetMessage(interaction, messageId)
+
+      if (!targetMessage) {
+        await interaction.editReply('Message not found.')
+        return
+      }
+
+      if (!targetMessage.content) {
+        await interaction.editReply('Message has no text content.')
+        return
+      }
+
+      const settings = loadSettings()
+      const glossary = settings.glossary || {}
+
+      const before = applyGlossary(
+        targetMessage.content,
+        glossary.before || {}
+      )
+
+      try {
+        const result = await translate(before, lang)
+
+        const after = applyGlossary(
+          result.text,
+          glossary.after || {}
+        )
+
+        const webhook = await getWebhook(interaction.channel)
+
+        const chunks = after.match(/[\s\S]{1,2000}/g) || []
+
+        // ACK削除（UIに残さない）
+        await interaction.deleteReply()
+
+        for (const chunk of chunks) {
+          await webhook.send({
+            content: chunk,
+            username: targetMessage.member?.displayName
+              || targetMessage.author.username,
+            avatarURL: targetMessage.author.displayAvatarURL()
+          })
+        }
+
+      } catch (err) {
+        console.error(err)
+        await interaction.editReply('Translation failed.')
+      }
+    }
+
     if (!interaction.member.permissions.has('ManageGuild')) {
       await interaction.reply({
         content: 'You need Manage Server permission.',
@@ -232,15 +317,12 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.commandName === 'translate-channel') {
 
-      const action = interaction.options.getString('action')
       const lang1 = interaction.options.getString('lang1')
       const lang2 = interaction.options.getString('lang2')
 
       const channelId = interaction.channelId
 
       const settings = loadSettings()
-
-      if (action === 'add') {
 
         if (!lang1 || !lang2) {
           await interaction.reply('Please specify lang1 and lang2')
@@ -259,24 +341,28 @@ client.on('interactionCreate', async interaction => {
         )
       }
 
-      if (action === 'remove') {
+    if (interaction.commandName === 'translate-disable') {
 
-        delete settings.channels[channelId]
-        saveSettings(settings)
+      const channelId = interaction.channelId
+      const settings = loadSettings()
 
-        await interaction.reply('Translation disabled.')
-      }
+      delete settings.channels[channelId]
+      saveSettings(settings)
+
+      await interaction.reply('Translation disabled.')
     }
 
     if (interaction.commandName === 'translate-list') {
+      const settings = loadSettings()
 
-      if (!settings.channels.length) {
+      const channelIds = Object.keys(settings.channels)
 
+      if (channelIds.length === 0) {
         await interaction.reply('No translation channels set.')
         return
       }
 
-      const list = settings.channels
+      const list = channelIds
         .map(id => `<#${id}>`)
         .join('\n')
 
