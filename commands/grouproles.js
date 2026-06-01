@@ -3,6 +3,7 @@ import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Mess
 const roleMap = {
   'AMA☼TERASU': '1455546666282258492',
   AMATERASU: '1455546666282258492',
+  I: '1447070205879521433',
   H: '1447071062629028043',
   Y: '1447071131608813609',
   Q: '1447071199753408532',
